@@ -1,3 +1,4 @@
 persist/
 scratch/
 *.pyc
+__pycache__
