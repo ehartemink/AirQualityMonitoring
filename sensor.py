@@ -2,7 +2,6 @@ import json
 import serial
 import struct
 import time
-from read_pm import *
 
 class ISensor:
 	
