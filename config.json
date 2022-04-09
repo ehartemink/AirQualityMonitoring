@@ -1,0 +1,8 @@
+{
+	"VOC": "ttyACM0",
+	"O3": "ttyUSB0",
+	"CO": "ttyUSB1",
+	"NO2": "ttyUSB2",
+	"PM": "ttyUSB3",
+	"CO2": "serial0"
+}
