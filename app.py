@@ -47,9 +47,11 @@ app.layout = html.Div(children=[
 	html.Label('Lookback Window'),
 		dcc.Slider(
             min=0,
-            max=9,
-			marks={i: f'Label {i}' if i == 1 else str(i) for i in range(1, 6)},
+            max=4,
+			marks=dict(enumerate(["1 min", "5 min", "1 hour", "24 hours", "1 week"])),
             value=5,
+			step=1,
+			included=False,
 			id='lookback-window'
         ),
 	*[create_graph_div(metric) for metric in sorted(df_by_metric)],
@@ -91,14 +93,10 @@ def create_figures(lookback_window, n):
 	output_figures = []
 	df = db.open_table()
 	df_by_metric = {metric: df for (metric, df) in df.groupby("metric")}
-	print(lookback_window)
 	for metric in sorted(df_by_metric.keys()):
 		output_figures.append(
-  			px.scatter(df_by_metric[metric],
- 				x="timestamp",
- 				y="value"
- 			)
-			# create_figure(metric, df)
+			create_figure(metric, df_by_metric[metric])
+			
 		)
 	return output_figures
 
