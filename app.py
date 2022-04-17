@@ -76,7 +76,7 @@ def create_figure(metric, df):
     	legend_title="Legend Title",
     	font=dict(
         	family="Garamond",
-        	size=12,
+        	size=8,
         	color="#1E90FF"
     	)
 	)
@@ -94,9 +94,11 @@ def create_figures(lookback_window, n):
 	df = db.open_table()
 	df_by_metric = {metric: df for (metric, df) in df.groupby("metric")}
 	for metric in sorted(df_by_metric.keys()):
+		df = df_by_metric[metric]
+		seconds_lookback=[60, 300, 3600, 86400, 604800][lookback_window-1]
+		df = df[df.timestamp > (dt.datetime.now() - dt.timedelta(seconds=seconds_lookback)).timestamp()]
 		output_figures.append(
-			create_figure(metric, df_by_metric[metric])
-			
+			create_figure(metric, df)
 		)
 	return output_figures
 
