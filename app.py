@@ -2,6 +2,7 @@ from dash import Dash, html, dcc
 from dash.dependencies import Input, Output
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 import datetime as dt
 import database
@@ -47,7 +48,7 @@ app.layout = html.Div(children=[
 		dcc.Slider(
             min=0,
             max=9,
-            marks={i: f'Label {i}' if i == 1 else str(i) for i in range(1, 6)},
+			marks={i: f'Label {i}' if i == 1 else str(i) for i in range(1, 6)},
             value=5,
 			id='lookback-window'
         ),
@@ -55,31 +56,52 @@ app.layout = html.Div(children=[
 
 	dcc.Interval(
             id='interval-component',
-            interval=5*1000, # in milliseconds
+            interval=15*1000, # in milliseconds
             n_intervals=0)
 ])
 
+def create_figure(metric, df):
+	fig = go.Figure(data=go.Scattergl(
+    	x=df["timestamp"],
+    	y=df["value"],
+    	mode='markers'
+	))
+
+	fig.update_layout(
+    	title=metric.upper(),
+    	xaxis_title="Time",
+    	yaxis_title="Value",
+    	legend_title="Legend Title",
+    	font=dict(
+        	family="Garamond",
+        	size=12,
+        	color="#1E90FF"
+    	)
+	)
+	return fig
 
 @app.callback(*[
 				Output(write_graph_id(metric), 'figure')
 				for metric in sorted(df_by_metric.keys())
 				],
+				Input('lookback-window', 'value'),
 				Input('interval-component', 'n_intervals')
 			)
-def create_graphs(n):
+def create_figures(lookback_window, n):
 	output_figures = []
 	df = db.open_table()
 	df_by_metric = {metric: df for (metric, df) in df.groupby("metric")}
+	print(lookback_window)
 	for metric in sorted(df_by_metric.keys()):
 		output_figures.append(
- 			px.scatter(df_by_metric[metric],
-				x="timestamp",
-				y="value"
-			)
+  			px.scatter(df_by_metric[metric],
+ 				x="timestamp",
+ 				y="value"
+ 			)
+			# create_figure(metric, df)
 		)
 	return output_figures
 
-	
 
 if __name__ == '__main__':
     app.run_server(debug=True, host="0.0.0.0", port=8000)
