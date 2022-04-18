@@ -3,9 +3,6 @@ import pandas as pd
 import numpy as np
 from threading import Lock
 
-#
-
-
 class DataBase:
 	schema = {
 		"metric": str,
@@ -45,3 +42,36 @@ class DataBase:
 				create_folder += folder
 				os.mkdir(create_folder)
 			df.to_csv(self.path, index=False)
+
+
+class ThreadSafeDict:
+
+	def __init__(self):
+		self._cache = {} 
+		self._locks = {}
+
+	def __setitem__(self, key, value):
+		if key not in self._cache:	
+			self._locks[key] = Lock()
+		self._locks[key].acquire()
+		self._cache[key] = value
+		self._locks[key].release()
+
+	def __getitem__(self, key):
+		self._locks[key].acquire()
+		output = self._cache[key]
+		self._locks[key].release()
+		return output
+
+	def aqcuire_lock(self, key):
+		self._locks[key].acquire()
+	
+	def release_lock(self, key):
+		self._locks[key].release()
+
+	def get_unsafe(self, key):
+		return self._cache[key]
+	
+	def set_unsafe(self, key, value):
+		self._cache[key] = value
+
