@@ -2,6 +2,8 @@ import json
 import serial
 import struct
 import time
+import io
+import fcntl
 
 class ISensor:
 	
@@ -37,7 +39,6 @@ class SpecSensor(ISensor):
 			output_list.append(current_char) 
 		output_str = "".join(output_list)[:-2]
 		output = self.convert_to_json(output_str, retries)
-		output["unit"] = self.gas_to_unit[self.gas]
 		return output
 
 	def convert_to_json(self, output_str, retries):
@@ -45,11 +46,15 @@ class SpecSensor(ISensor):
 		if not output_str: 
 			self.serial.write(b"c")
 			return self.read_data(retries=retries-1)
-		try: 
+		if retries > 0:
+			try: 
+				return {label: val for (label, val) in zip(self.labels, output_str.split(sep=", "))}
+			except Exception as e: 
+				print(e)
+				return {}
+		else:
 			return {label: val for (label, val) in zip(self.labels, output_str.split(sep=", "))}
-		except Exception as e: 
-			print(e)
-			return {}
+			
 
 class UThingSensor(ISensor):
 
@@ -153,3 +158,36 @@ class SDS011Sensor(ISensor):
 		cmd += bytes([checksum]) + self.encoder["tail"]
 		return cmd
 
+class CO2Meter(ISensor):
+	CMD_READ_REG = 0x22
+	REG_CO2_PPM = 0x08
+	I2C_SLAVE = 0x0703
+	addr = 0x68
+
+	def __init__(self, serial_path, baud_rate, gas):
+		self.fr = io.open(serial_path, "rb", buffering=0)
+		self.fw = io.open(serial_path, "wb", buffering=0)
+
+		fcntl.ioctl(self.fr, self.I2C_SLAVE, self.addr)
+		fcntl.ioctl(self.fw, self.I2C_SLAVE, self.addr)
+	
+	def write(self, data):
+		self.fw.write(bytes(data))
+	
+	def read_data(self, retries=3):
+		time.sleep(2)
+		checksum = (self.CMD_READ_REG + self.REG_CO2_PPM) & 0xFF
+		self.write([self.CMD_READ_REG, 0, self.REG_CO2_PPM, checksum])
+		if retries > 0:
+			try:
+				raw_output = self.fr.read(4)
+			except OSError:
+				return self.read_data(retries=retries-1)
+			except IOError:
+				return self.read_data(retries=retries-1)
+		else:
+			raw_output = self.fr.read(4)
+		time.sleep(0.5)
+		list_output = list(raw_output)
+		final_output = ((list_output[1] & 0xFF) << 8) | (list_output[2] & 0xFF)
+		return {"CO2": final_output}

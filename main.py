@@ -21,8 +21,12 @@ for (gas, serial_path) in config.items():
 		sensors[gas] = UThingSensor(full_serial_path, 9600, gas)
 	elif gas in "CO O3 NO2".split(): 
 		sensors[gas] = SpecSensor(full_serial_path, 9600, gas)
-	else:
+	elif gas == "PM":
 		sensors[gas] = SDS011Sensor(full_serial_path, 9600, gas)
+	elif gas == "CO2":
+		sensors[gas] = CO2Meter(full_serial_path, 9600, gas)
+	else:
+		print("Sensor not found ", gas)
 
 db = database.DataBase(database_path)
 
@@ -36,8 +40,7 @@ def read_and_print_data(wakeword, sensor, mediator, db):
 new_threads = {} 
 
 for (port, sensor) in sensors.items():
-	if port != "CO2":
-		new_threads[port] = threading.Thread(target=read_and_print_data, name=port, args=(port, sensor, mediator, db))
+	new_threads[port] = threading.Thread(target=read_and_print_data, name=port, args=(port, sensor, mediator, db))
 
 for port, thread in new_threads.items():
 	thread.start()
