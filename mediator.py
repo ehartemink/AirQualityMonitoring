@@ -20,10 +20,14 @@ def _u_thing_transform(data, wakeword):
 def _sd011_transform(data, wakeword):
 	return [_create_record_from_field(data, key) for key in ("pm2.5", "pm10")]
 
+def _co2_meter_transform(data, wakeword):
+	return [_create_record_from_field(data, wakeword)]
+
 wakewords = {
 	"O3": _spec_transform,
 	"CO": _spec_transform,
 	"NO2": _spec_transform,
 	"VOC": _u_thing_transform,
-	"PM": _sd011_transform
+	"PM": _sd011_transform,
+	"CO2": _co2_meter_transform
 }	
