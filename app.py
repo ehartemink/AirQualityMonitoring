@@ -1,5 +1,6 @@
 from dash import Dash, html, dcc
 from dash.dependencies import Input, Output
+from plotly.subplots import make_subplots
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
@@ -58,11 +59,6 @@ def figures_cache_daemon(metrics, db, figures_cache):
 	while True:
 		refresh_figures_cache(metrics, db, figures_cache)
 
-figures_by_metric_lookback = {metric + lookback: create_figure(metric, df, lookback) for (metric, df) in df_by_metric.items() for lookback in lookbacks}
-figures_cache = database.ThreadSafeDict()
-refresh_figures_cache(sorted(df_by_metric.keys()), db, figures_cache)
-figures_cache_daemon_thread = Thread(target=figures_cache_daemon, args=(sorted(df_by_metric.keys()), db, figures_cache))
-
 def write_graph_id(prefix):
 	return f"{prefix}_graph".replace(".", "")
 
@@ -102,7 +98,14 @@ app.layout = html.Div(children=[
 			included=False,
 			id='lookback-window'
         ),
-	*[create_graph_div(metric) for metric in sorted(df_by_metric)],
+	html.Div([dcc.Graph(
+		id="figure-id",
+		config={
+                'displayModeBar': False
+            }
+		)],
+		style={'width': '98%', 'display': 'inline-block'}),
+	
 
 	dcc.Interval(
             id='interval-component',
@@ -110,21 +113,41 @@ app.layout = html.Div(children=[
             n_intervals=0)
 ])
 
-@app.callback(*[
-				Output(write_graph_id(metric), 'figure')
-				for metric in sorted(df_by_metric.keys())
-				],
-				Input('lookback-window', 'value'),
-				Input('interval-component', 'n_intervals')
-			)
+
+
+@app.callback(
+				Output("figure-id", "figure"),
+				Input("lookback-window", "value"),
+				Input("interval-component", "n_intervals")
+		)
 def create_figures(lookback_window, n):
-	output_figures = []
 	df = db.open_table()
 	df_by_metric = {metric: df for (metric, df) in df.groupby("metric")}
-	output_figures = [figures_cache[metric + lookbacks[lookback_window]] for metric in sorted(df_by_metric.keys())]
-	return output_figures
-
-figures_cache_daemon_thread.start()
+	metrics = sorted(df_by_metric.keys())
+	total_subplots = len(metrics)
+	fig = make_subplots(rows=(total_subplots+1)//2, cols=2, subplot_titles=metrics)
+	for (i, metric) in enumerate(metrics):
+		seconds_lookback=lookbacks_in_seconds[lookbacks[lookback_window]]
+		df = df_by_metric[metric]
+		print(df.shape)
+		df = df[df.timestamp > (dt.datetime.now() - dt.timedelta(seconds=seconds_lookback)).timestamp()]
+		print(df.shape)
+		row_idx = (i // 2) + 1
+		col_idx = (i % 2) + 1
+		df = df_by_metric[metric]
+		fig.add_scattergl(
+			x=df["timestamp"],
+			y=df["value"],
+			row=row_idx,
+			col=col_idx,
+			mode="markers",
+			marker={"size": 5}
+		)
+		fig.update_xaxes(title_text="Timestamp", row=row_idx, col=col_idx)
+		fig.update_yaxes(title_text=metric, row=row_idx, col=col_idx)
+	fig.update_layout(height=3000, width=2000)
+	return fig
+	
 
 if __name__ == '__main__':
     app.run_server(debug=True, host="0.0.0.0", port=8000)
