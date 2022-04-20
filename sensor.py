@@ -174,7 +174,7 @@ class CO2Meter(ISensor):
 	def write(self, data):
 		self.fw.write(bytes(data))
 	
-	def read_data(self, retries=3):
+	def read_data(self, retries=5):
 		time.sleep(2)
 		checksum = (self.CMD_READ_REG + self.REG_CO2_PPM) & 0xFF
 		if retries > 0:
