@@ -177,15 +177,16 @@ class CO2Meter(ISensor):
 	def read_data(self, retries=3):
 		time.sleep(2)
 		checksum = (self.CMD_READ_REG + self.REG_CO2_PPM) & 0xFF
-		self.write([self.CMD_READ_REG, 0, self.REG_CO2_PPM, checksum])
 		if retries > 0:
 			try:
+				self.write([self.CMD_READ_REG, 0, self.REG_CO2_PPM, checksum])
 				raw_output = self.fr.read(4)
 			except OSError:
 				return self.read_data(retries=retries-1)
 			except IOError:
 				return self.read_data(retries=retries-1)
 		else:
+			self.write([self.CMD_READ_REG, 0, self.REG_CO2_PPM, checksum])
 			raw_output = self.fr.read(4)
 		time.sleep(0.5)
 		list_output = list(raw_output)
