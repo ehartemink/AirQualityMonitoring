@@ -15,7 +15,7 @@ def _spec_transform(data, wakeword):
 	return [_create_record_from_field(data, wakeword)]
 
 def _u_thing_transform(data, wakeword):
-	return [_create_record_from_field(data, key) for key in ("temperature", "pressure", "humidity", "IAQ", "eqCO2")]
+	return [_create_record_from_field(data, key) for key in ("temperature", "pressure", "humidity", "IAQ")]
 
 def _sd011_transform(data, wakeword):
 	return [_create_record_from_field(data, key) for key in ("pm2.5", "pm10")]
