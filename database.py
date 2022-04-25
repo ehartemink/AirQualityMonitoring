@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
+import datetime as dt
 from threading import Lock
 
 class DataBase:
@@ -14,7 +15,7 @@ class DataBase:
 		self.path = path
 		self.lock = Lock()
 		try:
-			self.open_table()
+			self._open_table()
 		# File may not exist
 		except FileNotFoundError:
 			self._initialize_table()
@@ -26,8 +27,37 @@ class DataBase:
 		self.lock.release()
 
 	def open_table(self):
-		df = pd.read_csv(self.path, engine="c", dtype=self.schema)
+		self.lock.acquire()
+		try:
+			df = self._open_table()
+		except pd.errors.EmptyDataError:
+			self.lock.release()
+			return self.open_table()
+		self.lock.release()
 		return df
+
+	def _open_table(self):
+		return pd.read_csv(self.path, engine="c", dtype=self.schema)
+
+	def remove_old_logs(self):
+		start = dt.datetime.now()
+		self.lock.acquire()
+		df = self._open_table()
+
+		# remove logs older than 1 week
+		one_week_ago = (dt.datetime.now() - dt.timedelta(seconds=60 * 60 * 24 * 7)).timestamp()
+		df = df[df.timestamp > one_week_ago]
+
+		# consolidate logs older than 1 hour into minute-by-minute logs
+		one_hour_ago = (dt.datetime.now() - dt.timedelta(seconds=3600)).timestamp()
+		older_than_one_week_ago = df.timestamp > one_hour_ago
+		last_hour_df = df[older_than_one_week_ago]
+		older_than_hour_df = df[~older_than_one_week_ago]
+		older_than_hour_df["timestamp"] = (older_than_hour_df["timestamp"] // 60) * 60.0
+		older_than_hour_df.groupby(["metric", "timestamp"]).mean().reset_index()
+		output_df = pd.concat([older_than_hour_df, last_hour_df], ignore_index=True)
+		output_df.to_csv(self.path, index=False)
+		self.lock.release()
 
 	def _initialize_table(self):
 		df = pd.DataFrame(columns=self.schema.keys())
