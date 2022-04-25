@@ -4,5 +4,5 @@
 	"CO": "ttyUSB1",
 	"NO2": "ttyUSB2",
 	"PM": "ttyUSB3",
-	"CO2": "i2c-1"
+	"CO2": "serial0"
 }
