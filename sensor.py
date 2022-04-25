@@ -2,8 +2,7 @@ import json
 import serial
 import struct
 import time
-import io
-import fcntl
+from smbus2 import SMBus, i2c_msg
 
 class ISensor:
 	
@@ -158,37 +157,50 @@ class SDS011Sensor(ISensor):
 		cmd += bytes([checksum]) + self.encoder["tail"]
 		return cmd
 
-class CO2Meter(ISensor):
+class CO2Meter_I2C(ISensor):
 	CMD_READ_REG = 0x22
 	REG_CO2_PPM = 0x08
 	I2C_SLAVE = 0x0703
 	addr = 0x68
 
 	def __init__(self, serial_path, baud_rate, gas):
-		self.fr = io.open(serial_path, "rb", buffering=0)
-		self.fw = io.open(serial_path, "wb", buffering=0)
-
-		fcntl.ioctl(self.fr, self.I2C_SLAVE, self.addr)
-		fcntl.ioctl(self.fw, self.I2C_SLAVE, self.addr)
-	
-	def write(self, data):
-		self.fw.write(bytes(data))
-	
-	def read_data(self, retries=5):
-		time.sleep(2)
+		self.bus_number = int(serial_path[-1])
 		checksum = (self.CMD_READ_REG + self.REG_CO2_PPM) & 0xFF
-		if retries > 0:
-			try:
-				self.write([self.CMD_READ_REG, 0, self.REG_CO2_PPM, checksum])
-				raw_output = self.fr.read(4)
-			except OSError:
-				return self.read_data(retries=retries-1)
-			except IOError:
-				return self.read_data(retries=retries-1)
-		else:
-			self.write([self.CMD_READ_REG, 0, self.REG_CO2_PPM, checksum])
-			raw_output = self.fr.read(4)
-		time.sleep(0.5)
-		list_output = list(raw_output)
-		final_output = ((list_output[1] & 0xFF) << 8) | (list_output[2] & 0xFF)
-		return {"CO2": final_output}
+		self._write_request = i2c_msg.write(self.addr, [self.CMD_READ_REG, 0x00, self.REG_CO2_PPM, checksum])
+
+	def _request_data(self):
+		self.bus.i2c_rdwr(self._write_request)
+
+	def _read_data(self):
+		read_request = i2c_msg.read(self.addr, 4)
+		raw_data = self.bus.i2c_rdwr(read_request)
+		return list(read_request)
+
+	def read_data(self):
+		try:
+			self.bus = SMBus(self.bus_number)
+			time.sleep(3.0)
+			self._request_data()
+			time.sleep(0.025)
+			list_output = self._read_data()
+			final_output = ((list_output[1] & 0xFF) << 8) | (list_output[2] & 0xFF)
+			self.bus.close()
+			return {"CO2": final_output}
+		except Exception as e:
+			self.bus.close()
+			print("Exception in CO2Meter: ", e)
+			return self.read_data()
+
+class CO2Meter(ISensor):
+
+	def __init__(self, serial_path, baud_rate, gas):
+		self.serial = serial.Serial(serial_path, baud_rate, timeout=5)
+	
+	def read_data(self):
+		self.serial.flushInput()
+		self.serial.write(b"\xFE\x44\x00\x08\x02\x9F\x25")
+		time.sleep(2)
+		resp = self.serial.read(7)
+		co2 = resp[3]*256 +resp[4]
+		time.sleep(0.1)
+		return {"CO2": co2}
