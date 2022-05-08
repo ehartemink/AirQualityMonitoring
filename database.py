@@ -10,6 +10,7 @@ class DataBase:
 		"value": np.float64,
 		"timestamp": np.float64
 	}
+	columns = ["metric", "value", "timestamp"]
 
 	def __init__(self, path):
 		self.path = path
@@ -48,15 +49,16 @@ class DataBase:
 		one_week_ago = (dt.datetime.now() - dt.timedelta(seconds=60 * 60 * 24 * 7)).timestamp()
 		df = df[df.timestamp > one_week_ago]
 
-		# consolidate logs older than 1 hour into minute-by-minute logs
+		# consolidate logs older than 1 hour into 1-minute
 		one_hour_ago = (dt.datetime.now() - dt.timedelta(seconds=3600)).timestamp()
-		older_than_one_week_ago = df.timestamp > one_hour_ago
-		last_hour_df = df[older_than_one_week_ago]
-		older_than_hour_df = df[~older_than_one_week_ago]
-		older_than_hour_df["timestamp"] = (older_than_hour_df["timestamp"] // 60) * 60.0
-		older_than_hour_df.groupby(["metric", "timestamp"]).mean().reset_index()
+		older_than_one_hour_ago = df.timestamp < one_hour_ago
+		last_hour_df = df[~older_than_one_hour_ago]
+		older_than_hour_df = df[older_than_one_hour_ago]
+		older_than_hour_df["timestamp"] = (older_than_hour_df["timestamp"] // 60)
+		older_than_hour_df = older_than_hour_df.groupby(["metric", "timestamp"]).mean().reset_index()
+		older_than_hour_df["timestamp"] = older_than_hour_df["timestamp"] * 60
 		output_df = pd.concat([older_than_hour_df, last_hour_df], ignore_index=True)
-		output_df.to_csv(self.path, index=False)
+		output_df[self.columns].to_csv(self.path, index=False)
 		self.lock.release()
 
 	def _initialize_table(self):
