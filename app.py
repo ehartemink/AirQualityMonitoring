@@ -14,20 +14,24 @@ app = Dash(__name__)
 INITIAL_LOOKBACK_WINDOW = 2
 
 database_path = "persist/table.csv"
-lookbacks = ["1 min", "5 min", "1 hour", "24 hours", "1 week"]
+lookbacks = ["1 min", "5 min", "1 hour", "8 hours", "24 hours"]
 lookbacks_in_seconds = {
 	"1 min": 60,
 	"5 min": 300,
 	"1 hour": 3600,
-	"24 hours": 86400,
-	"1 week": 604800
+	"8 hours": 3600*8,
+	"24 hours": 86400
 }
 
 def create_figure(df, lookback):
+	start = dt.datetime.now()
 	df_by_metric = {metric: df for (metric, df) in df.groupby("metric")}
+	print("splitting df by metric: ",  dt.datetime.now() - start)
 	metrics = sorted(df_by_metric.keys())
 	total_subplots = len(metrics)
+	print("total subplots: ", total_subplots)
 	fig = make_subplots(rows=(total_subplots+1)//2, cols=2, subplot_titles=metrics)
+	start = dt.datetime.now()
 	for (i, metric) in enumerate(metrics):
 		df = df_by_metric[metric]
 		row_idx = (i // 2) + 1
@@ -46,6 +50,7 @@ def create_figure(df, lookback):
 			print(df)
 		fig.update_xaxes(title_text="Timestamp", row=row_idx, col=col_idx)
 		fig.update_yaxes(title_text=metric, row=row_idx, col=col_idx)
+	print("Plotting figure time: ", dt.datetime.now() - start)
 	fig.update_layout(height=3000, width=2000)
 	return fig
 
@@ -54,13 +59,18 @@ def refresh_figures_cache(db, figures_cache):
 		try:
 			start = dt.datetime.now()
 			df = db.open_table()
+			print("Newest Record: ", dt.datetime.now().timestamp()- df.timestamp.max())
+			print("Open table time: ", dt.datetime.now() - start)
 			seconds_lookback=lookbacks_in_seconds[lookbacks[lookback_window]]
+			start_new = dt.datetime.now()
 			df = df[df.timestamp > (dt.datetime.now() - dt.timedelta(seconds=seconds_lookback)).timestamp()]
+			print("Filter table time: ", dt.datetime.now() - start_new)
 			df.timestamp = [dt.datetime.fromtimestamp(val).strftime("%Y-%m-%d %H:%M:%S") for val in df["timestamp"]]
 			fig = create_figure(df, lookback_window)
 			figures_cache[lookback_window] = fig
-		except:
+		except Exception as e:
 			print("Write figures failed for ", lookbacks[lookback_window])
+			print("Exception: ", e)
 		print("Write figures cache for ", lookbacks[lookback_window], dt.datetime.now() - start)
 
 def figures_cache_loop(db, figures_cache):
@@ -96,7 +106,7 @@ figures_cache_daemon = Thread(target=figures_cache_loop, name="figures-cache-dae
 figures_cache_daemon.start()
 
 app.layout = html.Div(children=[
-    html.H1(children='Welcome to my dashboard'),
+    html.H1(children="William Hartemink's Air Quality Monitoring Dashboard"),
 
 	html.Label('Lookback Window'),
 		dcc.Slider(
@@ -119,7 +129,7 @@ app.layout = html.Div(children=[
 
 	dcc.Interval(
             id='interval-component',
-            interval=750, # in milliseconds
+            interval=3.5*1000, # in milliseconds
             n_intervals=0)
 ])
 
