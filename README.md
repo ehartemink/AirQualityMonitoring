@@ -6,4 +6,4 @@ I was curious about the air quality in and around my home. This repository imple
 
 * Register your sensors and supply their paths within your `/dev` folder at `config.json`
 * From the path of the respository, `python3 main.py` runs the data ingestion
-* Similarly, `python3 app.py` runs the dashboard
+* Similarly, `python3 app.py` runs the dashboard, which is visible at port 8000
