@@ -23,6 +23,8 @@ lookbacks_in_seconds = {
 	"24 hours": 86400
 }
 
+metadata_df = pd.read_csv("persist/metric_metadata.csv", index_col="metric")
+
 def create_figure(df, lookback):
 	start = dt.datetime.now()
 	df_by_metric = {metric: df for (metric, df) in df.groupby("metric")}
@@ -43,13 +45,24 @@ def create_figure(df, lookback):
 			row=row_idx,
 			col=col_idx,
 			mode="markers",
-			marker={"size": 5}
+			marker={"size": 5},
+			line=dict(color="#2596be")
 			)
+			x_min = df["timestamp"].min()
+			x_max = df["timestamp"].max()
+			metric_metadata = metadata_df.loc[metric]
+			y_min = metric_metadata["min"]
+			y_max = metric_metadata["max"]
+			if y_min != 0:
+				fig.add_hline(y=y_max, row=row_idx, col=col_idx, line_color="red")
+			fig.add_hline(y=y_max, row=row_idx, col=col_idx, line_color="red")
+			fig.update_xaxes(title_text="Timestamp", range=[x_min, x_max], row=row_idx, col=col_idx)
+			y_range = df["value"].max() - df["value"].min()
+			fig.update_yaxes(title_text=f"{metric} ({metric_metadata['units']})",
+				range=[df["value"].min() - 0.1*y_range, df["value"].max() + 0.1*y_range], 
+				row=row_idx, col=col_idx)
 		except Exception as e:
 			print("Exception: ", e)
-			print(df)
-		fig.update_xaxes(title_text="Timestamp", row=row_idx, col=col_idx)
-		fig.update_yaxes(title_text=metric, row=row_idx, col=col_idx)
 	print("Plotting figure time: ", dt.datetime.now() - start)
 	fig.update_layout(height=3000, width=2000)
 	return fig
