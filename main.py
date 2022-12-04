@@ -4,6 +4,7 @@ import numpy as np
 import mediator
 import threading
 import database
+import datetime as dt
 from sensor import * 
 
 database_path = "persist/table.csv"
@@ -32,9 +33,12 @@ db = database.DataBase(database_path)
 
 def read_and_print_data(wakeword, sensor, mediator, db):
 	while True:
-		raw_data = sensor.read_data()
-		processed_data = mediator.transform(raw_data, wakeword)
-		db.batch_write(processed_data)
+		try:
+			raw_data = sensor.read_data()
+			processed_data = mediator.transform(raw_data, wakeword)
+			db.batch_write(processed_data)
+		except:
+			print(f"{dt.datetime.now()}: exception in sensor: {wakeword}")
 def data_cleaning_daemon(db):
 	while True:
 		time.sleep(60)		
