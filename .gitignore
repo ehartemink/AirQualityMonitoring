@@ -1,5 +1,6 @@
 persist/
 scratch/
+.ipynb_checkpoints/
 *.pyc
 *.swp
 __pycache__
